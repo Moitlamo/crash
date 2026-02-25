@@ -2,7 +2,6 @@ import streamlit as st
 import random
 import time
 
-# I added layout="wide" so the columns have plenty of room to breathe!
 st.set_page_config(page_title="The Combi Race", page_icon="🚐", layout="wide")
 
 # --- 1. Set up Session State (Memory) ---
@@ -10,6 +9,9 @@ if 'balance' not in st.session_state:
     st.session_state.balance = 1000.00 
 if 'history' not in st.session_state:
     st.session_state.history = [] 
+# NEW: Create a memory bank specifically for the line chart, starting with the initial BWP 1000
+if 'balance_history' not in st.session_state:
+    st.session_state.balance_history = [1000.00]
 
 def generate_crash_point():
     random_float = random.uniform(0, 1)
@@ -21,14 +23,12 @@ st.markdown(f"### 💰 Current Balance: BWP {st.session_state.balance:.2f}")
 st.divider()
 
 # --- 2. Split the Layout into Left (Game) and Right (History) Columns ---
-# [3, 1] means the left column is 3 times wider than the right column
 main_col, history_col = st.columns([3, 1])
 
 # --- RIGHT COLUMN: Vertical History ---
 with history_col:
     st.write("### ⏱️ Past Crashes")
     if st.session_state.history:
-        # Loop through the history and stack them
         for crash in reversed(st.session_state.history):
             if crash >= 10.00:
                 color = "#FFD700" 
@@ -37,7 +37,6 @@ with history_col:
             else:
                 color = "#F44336" 
                 
-            # By using a <div> with margin-bottom, these perfectly stack on top of each other
             st.markdown(
                 f"<div style='background-color: {color}; color: white; padding: 8px; "
                 f"border-radius: 6px; margin-bottom: 8px; text-align: center; "
@@ -52,7 +51,6 @@ with history_col:
 with main_col:
     st.write("Set your target multiplier and see if the combi makes it!")
     
-    # Input Fields (Nested inside the main column)
     col1, col2 = st.columns(2)
     
     with col1:
@@ -62,7 +60,6 @@ with main_col:
     with col2:
         auto_cashout = st.number_input("Target Multiplier (x)", min_value=1.01, value=2.00, step=0.1)
 
-    # Game Logic
     if st.button("Start The Engine", use_container_width=True):
         if bet_amount > st.session_state.balance:
             st.error("Insufficient funds! Please refresh the page.")
@@ -70,14 +67,12 @@ with main_col:
             st.session_state.balance -= bet_amount
             crash = generate_crash_point()
             
-            # Placeholders
             multiplier_display = st.empty()
             status_message = st.empty()
             
             current_multiplier = 1.00
             
             while current_multiplier < crash:
-                # Increased the font size slightly so it stands out in the wider column
                 multiplier_display.markdown(f"<h1 style='text-align: center; color: green; font-size: 70px;'>{current_multiplier:.2f}x</h1>", unsafe_allow_html=True)
                 time.sleep(0.05) 
                 current_multiplier += 0.05 + (current_multiplier * 0.01)
@@ -86,7 +81,6 @@ with main_col:
                     current_multiplier = auto_cashout
                     break 
                     
-            # Win/Loss Resolution
             if auto_cashout <= crash:
                 winnings = bet_amount * auto_cashout
                 st.session_state.balance += winnings 
@@ -97,9 +91,21 @@ with main_col:
                 multiplier_display.markdown(f"<h1 style='text-align: center; color: red; font-size: 70px;'>💥 CRASHED AT {crash}x 💥</h1>", unsafe_allow_html=True)
                 status_message.error(f"💀 You lost BWP {bet_amount:.2f}. The Combi crashed early.")
             
-            # Update History
+            # --- Update Memories ---
             st.session_state.history.append(crash)
             st.session_state.history = st.session_state.history[-20:]
             
+            # NEW: Add the new balance to our line chart history
+            st.session_state.balance_history.append(st.session_state.balance)
+            
             time.sleep(2) 
-            st.rerun()
+            st.rerun() 
+
+st.divider()
+
+# --- 3. The Analytics Section ---
+st.write("### 📈 Performance Analytics")
+st.write("Track your bankroll over time to analyze your betting strategy.")
+
+# Draw the line chart using our new memory bank!
+st.line_chart(st.session_state.balance_history)
