@@ -63,4 +63,62 @@ else:
     # Risk Management Inputs
     st.write("### 🛡️ Risk Management (The Hit & Run Rules)")
     rm_col1, rm_col2 = st.columns(2)
-    take_profit = rm_col1.number_input("Take Profit Target (Stop if
+    # These strings are now much shorter so GitHub won't break them!
+    take_profit = rm_col1.number_input("Take Profit Target (BWP):", value=1200.0, step=100.0)
+    stop_loss = rm_col2.number_input("Hard Stop Loss (BWP):", value=500.0, step=100.0)
+
+    if st.button("Run Strategy Backtest", type="primary", use_container_width=True):
+        balance = starting_balance
+        current_bet = base_bet
+        balance_history = [balance]
+        
+        end_reason = "Completed All Rounds"
+        end_round = total_rounds
+
+        # The Backtest Engine
+        for i, tick in enumerate(st.session_state.market_history):
+            if balance <= 0:
+                end_reason = "💀 LIQUIDATED (Account Blown)"
+                end_round = i
+                break
+            if balance <= stop_loss:
+                end_reason = "🛑 STOP LOSS HIT (Capital Preserved)"
+                end_round = i
+                break
+            if balance >= take_profit:
+                end_reason = "🎯 TAKE PROFIT HIT (Walked Away a Winner)"
+                end_round = i
+                break
+            
+            actual_bet = min(current_bet, balance)
+            balance -= actual_bet
+            
+            if tick >= bt_target:
+                balance += actual_bet * bt_target
+                current_bet = base_bet 
+            else:
+                current_bet = current_bet * loss_multiplier
+                
+            balance_history.append(balance)
+
+        # --- Show Backtest Results ---
+        st.write("### 📈 P&L Equity Curve")
+        
+        chart_data = pd.DataFrame(balance_history, columns=["Account Balance (BWP)"])
+        st.line_chart(chart_data)
+        
+        final_balance = balance_history[-1]
+        peak_balance = max(balance_history)
+        
+        res_col1, res_col2, res_col3 = st.columns(3)
+        res_col1.metric("Ending Balance", f"BWP {final_balance:.2f}", f"{final_balance - starting_balance:.2f}")
+        res_col2.metric("Peak Balance", f"BWP {peak_balance:.2f}")
+        
+        if "TAKE PROFIT" in end_reason:
+            res_col3.success(f"**Status:** {end_reason} at round {end_round}")
+        elif "STOP LOSS" in end_reason:
+            res_col3.warning(f"**Status:** {end_reason} at round {end_round}")
+        elif "LIQUIDATED" in end_reason:
+            res_col3.error(f"**Status:** {end_reason} at round {end_round}")
+        else:
+            res_col3.info(f"**Status:** {end_reason}")
