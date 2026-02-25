@@ -1,35 +1,39 @@
-﻿import random
+import streamlit as st
+import random
 import time
 
+# Set up the page layout
+st.set_page_config(page_title="Crash Simulator", page_icon="🚀")
+
 def generate_crash_point():
-    """Generates a crash multiplier heavily weighting lower numbers."""
-    # This math creates the classic 'crash' probability curve
+    """Generates the random crash multiplier."""
     random_float = random.uniform(0, 1)
-    
-    # If the random float is very close to 1, it creates a high multiplier
-    # The max(1.01, ...) ensures the absolute minimum crash is 1.01x
     crash_point = max(1.01, 0.99 / (1 - random_float))
-    
-    # Let's cap the maximum possible multiplier at 1000x for safety
     return round(min(crash_point, 1000.00), 2)
 
-def play_round():
+# The Web UI
+st.title("🚀 Crash Game Engine")
+st.write("Click the button below to simulate a round.")
+
+# Create a button to start the game
+if st.button("Start Round"):
     crash = generate_crash_point()
-    print("🚦 Get ready...")
-    time.sleep(1)
-    print("🚀 The round has started!")
+    
+    # st.empty() creates a placeholder on the web page that we can update in real-time
+    multiplier_display = st.empty()
     
     current_multiplier = 1.00
     
     # Loop to simulate the rising multiplier
     while current_multiplier < crash:
-        print(f"Current Multiplier: {current_multiplier:.2f}x")
-        time.sleep(0.2) # Wait a fraction of a second to simulate time passing
+        # Update the placeholder with the current number
+        multiplier_display.markdown(f"<h2 style='text-align: center; color: green;'>{current_multiplier:.2f}x</h2>", unsafe_allow_html=True)
         
-        # Increase the multiplier (it accelerates slightly as it gets higher)
+        time.sleep(0.1) # Controls the speed of the counter
         current_multiplier += 0.05 + (current_multiplier * 0.01)
         
-    print(f"\n💥 CRASHED at {crash}x! 💥")
+    # Once the loop finishes (it crashes), update the text to red
+    multiplier_display.markdown(f"<h2 style='text-align: center; color: red;'>💥 CRASHED AT {crash}x 💥</h2>", unsafe_allow_html=True)
 
-# Run a test round
-play_round()
+st.divider()
+st.write("Ready to test your strategies without risking the bankroll.")
