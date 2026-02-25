@@ -9,9 +9,11 @@ if 'balance' not in st.session_state:
     st.session_state.balance = 1000.00 
 if 'history' not in st.session_state:
     st.session_state.history = [] 
-# NEW: Create a memory bank specifically for the line chart, starting with the initial BWP 1000
 if 'balance_history' not in st.session_state:
     st.session_state.balance_history = [1000.00]
+# NEW: Memory bank specifically for plotting the crash trend
+if 'all_crashes' not in st.session_state:
+    st.session_state.all_crashes = []
 
 def generate_crash_point():
     random_float = random.uniform(0, 1)
@@ -22,12 +24,12 @@ st.title("🚐 The Combi Race")
 st.markdown(f"### 💰 Current Balance: BWP {st.session_state.balance:.2f}")
 st.divider()
 
-# --- 2. Split the Layout into Left (Game) and Right (History) Columns ---
+# --- 2. Split the Layout ---
 main_col, history_col = st.columns([3, 1])
 
-# --- RIGHT COLUMN: Vertical History ---
+# --- RIGHT COLUMN: Vertical History (Last 20) ---
 with history_col:
-    st.write("### ⏱️ Past Crashes")
+    st.write("### ⏱️ Past 20 Crashes")
     if st.session_state.history:
         for crash in reversed(st.session_state.history):
             if crash >= 10.00:
@@ -95,8 +97,10 @@ with main_col:
             st.session_state.history.append(crash)
             st.session_state.history = st.session_state.history[-20:]
             
-            # NEW: Add the new balance to our line chart history
             st.session_state.balance_history.append(st.session_state.balance)
+            
+            # NEW: Add the crash point to our long-term chart history
+            st.session_state.all_crashes.append(crash)
             
             time.sleep(2) 
             st.rerun() 
@@ -104,8 +108,22 @@ with main_col:
 st.divider()
 
 # --- 3. The Analytics Section ---
-st.write("### 📈 Performance Analytics")
-st.write("Track your bankroll over time to analyze your betting strategy.")
+st.write("### 📈 Performance & Market Analytics")
 
-# Draw the line chart using our new memory bank!
-st.line_chart(st.session_state.balance_history)
+# Create two columns side-by-side for our charts
+chart_col1, chart_col2 = st.columns(2)
+
+with chart_col1:
+    st.write("**Crash Multiplier Trend**")
+    st.write("Analyze the volatility of past rounds.")
+    if st.session_state.all_crashes:
+        # Plot the crash history
+        st.line_chart(st.session_state.all_crashes)
+    else:
+        st.write("Play a round to generate chart data.")
+
+with chart_col2:
+    st.write("**Account Bankroll (BWP)**")
+    st.write("Track your profit and loss curve.")
+    # Plot the bankroll history
+    st.line_chart(st.session_state.balance_history)
