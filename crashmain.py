@@ -1,129 +1,90 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import random
-import time
 
 st.set_page_config(page_title="The Combi Race", page_icon="🚐", layout="wide")
-
-# --- 1. Set up Session State (Memory) ---
-if 'balance' not in st.session_state:
-    st.session_state.balance = 1000.00 
-if 'history' not in st.session_state:
-    st.session_state.history = [] 
-if 'balance_history' not in st.session_state:
-    st.session_state.balance_history = [1000.00]
-# NEW: Memory bank specifically for plotting the crash trend
-if 'all_crashes' not in st.session_state:
-    st.session_state.all_crashes = []
 
 def generate_crash_point():
     random_float = random.uniform(0, 1)
     crash_point = max(1.01, 0.99 / (1 - random_float))
     return round(min(crash_point, 1000.00), 2)
 
-st.title("🚐 The Combi Race")
-st.markdown(f"### 💰 Current Balance: BWP {st.session_state.balance:.2f}")
+st.title("🚐 The Combi Race (Real-Time Edition)")
+st.write("Click the green CASH OUT button before the combi crashes!")
 st.divider()
 
-# --- 2. Split the Layout ---
-main_col, history_col = st.columns([3, 1])
-
-# --- RIGHT COLUMN: Vertical History (Last 20) ---
-with history_col:
-    st.write("### ⏱️ Past 20 Crashes")
-    if st.session_state.history:
-        for crash in reversed(st.session_state.history):
-            if crash >= 10.00:
-                color = "#FFD700" 
-            elif crash >= 2.00:
-                color = "#4CAF50" 
-            else:
-                color = "#F44336" 
-                
-            st.markdown(
-                f"<div style='background-color: {color}; color: white; padding: 8px; "
-                f"border-radius: 6px; margin-bottom: 8px; text-align: center; "
-                f"font-weight: bold; font-size: 18px; box-shadow: 1px 1px 3px rgba(0,0,0,0.2);'>"
-                f"{crash}x</div>", 
-                unsafe_allow_html=True
-            )
-    else:
-        st.write("No rounds played yet.")
-
-# --- LEFT COLUMN: Main Game Engine ---
-with main_col:
-    st.write("Set your target multiplier and see if the combi makes it!")
+# 1. The Python Backend generates the secure crash point
+if st.button("Start Next Round", use_container_width=True):
+    crash_target = generate_crash_point()
     
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        max_bet = float(st.session_state.balance) if st.session_state.balance > 0 else 1.0
-        bet_amount = st.number_input("Bet Amount (BWP)", min_value=1.0, max_value=max_bet, value=10.0, step=1.0)
+    # 2. We write the Frontend (HTML + JavaScript) as a Python string
+    # We use an f-string to secretly inject our Python 'crash_target' into the JavaScript
+    custom_game_ui = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body {{ font-family: sans-serif; text-align: center; color: white; background-color: #0E1117; }}
+            #multiplier {{ font-size: 80px; font-weight: bold; color: #4CAF50; margin-top: 20px; }}
+            #status {{ font-size: 24px; margin-top: 10px; height: 30px; }}
+            .btn {{ 
+                background-color: #4CAF50; color: white; padding: 15px 32px; 
+                text-align: center; font-size: 24px; font-weight: bold; border-radius: 8px;
+                border: none; cursor: pointer; margin-top: 20px; width: 50%; box-shadow: 0px 4px 6px rgba(0,0,0,0.3);
+            }}
+            .btn:active {{ transform: scale(0.98); }}
+            .btn:disabled {{ background-color: #555; cursor: not-allowed; }}
+        </style>
+    </head>
+    <body>
+        <div id="multiplier">1.00x</div>
+        <div id="status">Speeding up...</div>
+        <button id="cashout-btn" class="btn" onclick="cashOut()">CASH OUT NOW</button>
 
-    with col2:
-        auto_cashout = st.number_input("Target Multiplier (x)", min_value=1.01, value=2.00, step=0.1)
+        <script>
+            let currentMulti = 1.00;
+            let crashed = false;
+            let cashedOut = false;
+            
+            // The Python variable is injected right here:
+            let crashPoint = {crash_target}; 
+            
+            let display = document.getElementById("multiplier");
+            let status = document.getElementById("status");
+            let btn = document.getElementById("cashout-btn");
 
-    if st.button("Start The Engine", use_container_width=True):
-        if bet_amount > st.session_state.balance:
-            st.error("Insufficient funds! Please refresh the page.")
-        else:
-            st.session_state.balance -= bet_amount
-            crash = generate_crash_point()
-            
-            multiplier_display = st.empty()
-            status_message = st.empty()
-            
-            current_multiplier = 1.00
-            
-            while current_multiplier < crash:
-                multiplier_display.markdown(f"<h1 style='text-align: center; color: green; font-size: 70px;'>{current_multiplier:.2f}x</h1>", unsafe_allow_html=True)
-                time.sleep(0.05) 
-                current_multiplier += 0.05 + (current_multiplier * 0.01)
+            // This JavaScript timer runs the animation instantly in the browser
+            let gameLoop = setInterval(() => {{
+                if (crashed || cashedOut) return;
                 
-                if current_multiplier >= auto_cashout:
-                    current_multiplier = auto_cashout
-                    break 
-                    
-            if auto_cashout <= crash:
-                winnings = bet_amount * auto_cashout
-                st.session_state.balance += winnings 
+                currentMulti += 0.05 + (currentMulti * 0.01);
                 
-                multiplier_display.markdown(f"<h1 style='text-align: center; color: #FFD700; font-size: 70px;'>Cashed out at {auto_cashout:.2f}x!</h1>", unsafe_allow_html=True)
-                status_message.success(f"🎉 You won! Payout: BWP {winnings:.2f}. The Combi eventually crashed at {crash}x.")
-            else:
-                multiplier_display.markdown(f"<h1 style='text-align: center; color: red; font-size: 70px;'>💥 CRASHED AT {crash}x 💥</h1>", unsafe_allow_html=True)
-                status_message.error(f"💀 You lost BWP {bet_amount:.2f}. The Combi crashed early.")
-            
-            # --- Update Memories ---
-            st.session_state.history.append(crash)
-            st.session_state.history = st.session_state.history[-20:]
-            
-            st.session_state.balance_history.append(st.session_state.balance)
-            
-            # NEW: Add the crash point to our long-term chart history
-            st.session_state.all_crashes.append(crash)
-            
-            time.sleep(2) 
-            st.rerun() 
+                if (currentMulti >= crashPoint) {{
+                    // CRASH LOGIC
+                    currentMulti = crashPoint;
+                    crashed = true;
+                    display.innerText = currentMulti.toFixed(2) + "x";
+                    display.style.color = "#F44336"; // Red
+                    status.innerText = "💥 CRASHED! 💥";
+                    btn.disabled = true;
+                    clearInterval(gameLoop);
+                }} else {{
+                    display.innerText = currentMulti.toFixed(2) + "x";
+                }}
+            }}, 50);
 
-st.divider()
+            // This function triggers the exact millisecond you click the button
+            function cashOut() {{
+                if (crashed || cashedOut) return;
+                cashedOut = true;
+                display.style.color = "#FFD700"; // Gold
+                status.innerText = "🎉 You Cashed Out at " + currentMulti.toFixed(2) + "x! (Combi crashed at " + crashPoint + "x)";
+                btn.disabled = true;
+            }}
+        </script>
+    </body>
+    </html>
+    """
 
-# --- 3. The Analytics Section ---
-st.write("### 📈 Performance & Market Analytics")
-
-# Create two columns side-by-side for our charts
-chart_col1, chart_col2 = st.columns(2)
-
-with chart_col1:
-    st.write("**Crash Multiplier Trend**")
-    st.write("Analyze the volatility of past rounds.")
-    if st.session_state.all_crashes:
-        # Plot the crash history
-        st.line_chart(st.session_state.all_crashes)
-    else:
-        st.write("Play a round to generate chart data.")
-
-with chart_col2:
-    st.write("**Account Bankroll (BWP)**")
-    st.write("Track your profit and loss curve.")
-    # Plot the bankroll history
-    st.line_chart(st.session_state.balance_history)
+    # 3. We use Streamlit Components to render our mini JavaScript game on the page!
+    components.html(custom_game_ui, height=400)
