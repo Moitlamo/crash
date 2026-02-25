@@ -45,7 +45,6 @@ if st.button("Generate & Analyze Tick Data", use_container_width=True):
         st.success("✅ Market Data Generated!")
         st.write(f"**Win Rate (≥2.00x):** {(crashes_over_2 / total_rounds) * 100:.2f}% | **Longest Red Streak:** {max_red_streak} rounds")
 
-
 # --- 2. The Strategy Backtester ---
 st.divider()
 st.subheader("🧪 2. Strategy Backtester")
@@ -61,69 +60,7 @@ else:
     bt_target = bt_col3.number_input("Auto-Cashout Target", value=2.00, step=0.10)
     loss_multiplier = bt_col4.number_input("Bet Multiplier on Loss", value=1.0, step=0.1, help="1.0 = Flat bet. 2.0 = Double bet (Martingale).")
 
-    # NEW: Risk Management Inputs
+    # Risk Management Inputs
     st.write("### 🛡️ Risk Management (The Hit & Run Rules)")
     rm_col1, rm_col2 = st.columns(2)
-    take_profit = rm_col1.number_input("Take Profit Target (Stop trading if balance hits BWP):", value=1200.0, step=100.0)
-    stop_loss = rm_col2.number_input("Hard Stop Loss (Stop trading if balance drops to BWP):", value=500.0, step=100.0)
-
-    if st.button("Run Strategy Backtest", type="primary", use_container_width=True):
-        balance = starting_balance
-        current_bet = base_bet
-        balance_history = [balance]
-        
-        # Track why the session ended
-        end_reason = "Completed All Rounds"
-        end_round = total_rounds
-
-        # The Backtest Engine
-        for i, tick in enumerate(st.session_state.market_history):
-            # 1. Check Risk Management BEFORE placing a bet
-            if balance <= 0:
-                end_reason = "💀 LIQUIDATED (Account Blown)"
-                end_round = i
-                break
-            if balance <= stop_loss:
-                end_reason = "🛑 STOP LOSS HIT (Capital Preserved)"
-                end_round = i
-                break
-            if balance >= take_profit:
-                end_reason = "🎯 TAKE PROFIT HIT (Walked Away a Winner)"
-                end_round = i
-                break
-            
-            # 2. Place the Bet
-            actual_bet = min(current_bet, balance)
-            balance -= actual_bet
-            
-            # 3. Game Outcome
-            if tick >= bt_target:
-                balance += actual_bet * bt_target
-                current_bet = base_bet 
-            else:
-                current_bet = current_bet * loss_multiplier
-                
-            balance_history.append(balance)
-
-        # --- Show Backtest Results ---
-        st.write("### 📈 P&L Equity Curve")
-        
-        chart_data = pd.DataFrame(balance_history, columns=["Account Balance (BWP)"])
-        st.line_chart(chart_data)
-        
-        final_balance = balance_history[-1]
-        peak_balance = max(balance_history)
-        
-        res_col1, res_col2, res_col3 = st.columns(3)
-        res_col1.metric("Ending Balance", f"BWP {final_balance:.2f}", f"{final_balance - starting_balance:.2f}")
-        res_col2.metric("Peak Balance", f"BWP {peak_balance:.2f}")
-        
-        # Color coding the final status
-        if "TAKE PROFIT" in end_reason:
-            res_col3.success(f"**Status:** {end_reason} at round {end_round}")
-        elif "STOP LOSS" in end_reason:
-            res_col3.warning(f"**Status:** {end_reason} at round {end_round}")
-        elif "LIQUIDATED" in end_reason:
-            res_col3.error(f"**Status:** {end_reason} at round {end_round}")
-        else:
-            res_col3.info(f"**Status:** {end_reason}")
+    take_profit = rm_col1.number_input("Take Profit Target (Stop if
