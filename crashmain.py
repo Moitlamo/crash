@@ -20,7 +20,6 @@ with col1:
 with col2:
     target_multiplier = st.number_input("Target Multiplier to Analyze (e.g., 3.00):", min_value=1.01, value=3.00, step=0.10)
 
-# We use session state to save the market history so the backtester can use it
 if 'market_history' not in st.session_state:
     st.session_state.market_history = []
 
@@ -55,34 +54,53 @@ st.write("Run a betting system through the generated history to see your Profit 
 if not st.session_state.market_history:
     st.warning("⚠️ Please click 'Generate & Analyze Tick Data' above before running a backtest.")
 else:
+    # Core Strategy Inputs
     bt_col1, bt_col2, bt_col3, bt_col4 = st.columns(4)
     starting_balance = bt_col1.number_input("Starting Balance (BWP)", value=1000.0, step=100.0)
     base_bet = bt_col2.number_input("Base Bet (BWP)", value=10.0, step=1.0)
     bt_target = bt_col3.number_input("Auto-Cashout Target", value=2.00, step=0.10)
-    loss_multiplier = bt_col4.number_input("Bet Multiplier on Loss", value=1.0, step=0.1, help="1.0 = Flat bet. 2.0 = Double bet after loss (Martingale).")
+    loss_multiplier = bt_col4.number_input("Bet Multiplier on Loss", value=1.0, step=0.1, help="1.0 = Flat bet. 2.0 = Double bet (Martingale).")
+
+    # NEW: Risk Management Inputs
+    st.write("### 🛡️ Risk Management (The Hit & Run Rules)")
+    rm_col1, rm_col2 = st.columns(2)
+    take_profit = rm_col1.number_input("Take Profit Target (Stop trading if balance hits BWP):", value=1200.0, step=100.0)
+    stop_loss = rm_col2.number_input("Hard Stop Loss (Stop trading if balance drops to BWP):", value=500.0, step=100.0)
 
     if st.button("Run Strategy Backtest", type="primary", use_container_width=True):
         balance = starting_balance
         current_bet = base_bet
         balance_history = [balance]
-        busted_round = -1
+        
+        # Track why the session ended
+        end_reason = "Completed All Rounds"
+        end_round = total_rounds
 
         # The Backtest Engine
         for i, tick in enumerate(st.session_state.market_history):
+            # 1. Check Risk Management BEFORE placing a bet
             if balance <= 0:
-                busted_round = i
-                break # Account blown, stop trading
+                end_reason = "💀 LIQUIDATED (Account Blown)"
+                end_round = i
+                break
+            if balance <= stop_loss:
+                end_reason = "🛑 STOP LOSS HIT (Capital Preserved)"
+                end_round = i
+                break
+            if balance >= take_profit:
+                end_reason = "🎯 TAKE PROFIT HIT (Walked Away a Winner)"
+                end_round = i
+                break
             
-            # You can't bet more money than you have in your account
+            # 2. Place the Bet
             actual_bet = min(current_bet, balance)
             balance -= actual_bet
             
+            # 3. Game Outcome
             if tick >= bt_target:
-                # WIN: Add profits and reset the bet size to normal
                 balance += actual_bet * bt_target
                 current_bet = base_bet 
             else:
-                # LOSS: Multiply the next bet based on your risk rules
                 current_bet = current_bet * loss_multiplier
                 
             balance_history.append(balance)
@@ -90,21 +108,22 @@ else:
         # --- Show Backtest Results ---
         st.write("### 📈 P&L Equity Curve")
         
-        # Draw the chart
         chart_data = pd.DataFrame(balance_history, columns=["Account Balance (BWP)"])
         st.line_chart(chart_data)
         
-        # Show final metrics
         final_balance = balance_history[-1]
         peak_balance = max(balance_history)
         
         res_col1, res_col2, res_col3 = st.columns(3)
         res_col1.metric("Ending Balance", f"BWP {final_balance:.2f}", f"{final_balance - starting_balance:.2f}")
-        res_col2.metric("Peak Balance (Highest Point)", f"BWP {peak_balance:.2f}")
+        res_col2.metric("Peak Balance", f"BWP {peak_balance:.2f}")
         
-        if busted_round != -1:
-            res_col3.metric("Status", "💀 LIQUIDATED")
-            st.error(f"**Margin Call:** Your account was completely wiped out on round **{busted_round}**.")
-            st.write("This usually happens when a long 'red streak' forces your bet size higher than your available margin.")
+        # Color coding the final status
+        if "TAKE PROFIT" in end_reason:
+            res_col3.success(f"**Status:** {end_reason} at round {end_round}")
+        elif "STOP LOSS" in end_reason:
+            res_col3.warning(f"**Status:** {end_reason} at round {end_round}")
+        elif "LIQUIDATED" in end_reason:
+            res_col3.error(f"**Status:** {end_reason} at round {end_round}")
         else:
-            res_col3.metric("Status", "✅ SURVIVED")
+            res_col3.info(f"**Status:** {end_reason}")
