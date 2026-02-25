@@ -1,4 +1,24 @@
-# 2. We write the Frontend (HTML + JavaScript) as a Python string
+import streamlit as st
+import streamlit.components.v1 as components
+import random
+
+st.set_page_config(page_title="The Combi Race", page_icon="🚐", layout="wide")
+
+def generate_crash_point():
+    random_float = random.uniform(0, 1)
+    crash_point = max(1.01, 0.99 / (1 - random_float))
+    return round(min(crash_point, 1000.00), 2)
+
+st.title("🚐 The Combi Race (Real-Time Edition)")
+st.write("Click the green CASH OUT button before the combi crashes!")
+st.divider()
+
+# 1. The Python Backend generates the secure crash point
+if st.button("Start Next Round", use_container_width=True):
+    crash_target = generate_crash_point()
+    
+    # 2. The Frontend (HTML + JavaScript) 
+    # Notice how this is indented to line up exactly under 'crash_target'
     custom_game_ui = f"""
     <!DOCTYPE html>
     <html>
@@ -36,7 +56,6 @@
 
             // The animation loop
             let gameLoop = setInterval(() => {{
-                // Notice we ONLY check if it crashed. We no longer care if you cashed out!
                 if (crashed) return;
                 
                 currentMulti += 0.05 + (currentMulti * 0.01);
@@ -48,7 +67,6 @@
                     display.innerText = currentMulti.toFixed(2) + "x";
                     display.style.color = "#F44336"; // Turn Red
                     
-                    // Final message changes depending on if you clicked the button earlier
                     if (cashedOut) {{
                         status.innerText = "💥 CRASHED! But you safely secured " + cashOutValue.toFixed(2) + "x.";
                     }} else {{
@@ -67,13 +85,15 @@
                 if (crashed || cashedOut) return;
                 
                 cashedOut = true;
-                cashOutValue = currentMulti; // Lock in the exact number you clicked on
+                cashOutValue = currentMulti; 
                 
-                // Update the status text, but leave the multiplier green so it keeps going!
                 status.innerText = "🎉 Cashed Out at " + cashOutValue.toFixed(2) + "x! (Watching Combi...)";
-                btn.disabled = true; // Gray out the button so you can't click twice
+                btn.disabled = true; 
             }}
         </script>
     </body>
     </html>
     """
+
+    # 3. We use Streamlit Components to render our mini JavaScript game
+    components.html(custom_game_ui, height=400)
