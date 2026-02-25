@@ -1,99 +1,45 @@
-import streamlit as st
-import streamlit.components.v1 as components
 import random
 
-st.set_page_config(page_title="The Combi Race", page_icon="🚐", layout="wide")
-
 def generate_crash_point():
+    """The exact same engine powering The Combi Race."""
     random_float = random.uniform(0, 1)
     crash_point = max(1.01, 0.99 / (1 - random_float))
     return round(min(crash_point, 1000.00), 2)
 
-st.title("🚐 The Combi Race (Real-Time Edition)")
-st.write("Click the green CASH OUT button before the combi crashes!")
-st.divider()
+# --- 1. Generate the Tick Data ---
+total_rounds = 100000
+print(f"Generating and analyzing {total_rounds:,} rounds...")
 
-# 1. The Python Backend generates the secure crash point
-if st.button("Start Next Round", use_container_width=True):
-    crash_target = generate_crash_point()
-    
-    # 2. The Frontend (HTML + JavaScript) 
-    # Notice how this is indented to line up exactly under 'crash_target'
-    custom_game_ui = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <style>
-            body {{ font-family: sans-serif; text-align: center; color: white; background-color: #0E1117; }}
-            #multiplier {{ font-size: 80px; font-weight: bold; color: #4CAF50; margin-top: 20px; }}
-            #status {{ font-size: 24px; margin-top: 10px; height: 30px; color: #FFD700; }}
-            .btn {{ 
-                background-color: #4CAF50; color: white; padding: 15px 32px; 
-                text-align: center; font-size: 24px; font-weight: bold; border-radius: 8px;
-                border: none; cursor: pointer; margin-top: 20px; width: 50%; box-shadow: 0px 4px 6px rgba(0,0,0,0.3);
-            }}
-            .btn:active {{ transform: scale(0.98); }}
-            .btn:disabled {{ background-color: #555; cursor: not-allowed; }}
-        </style>
-    </head>
-    <body>
-        <div id="multiplier">1.00x</div>
-        <div id="status">Speeding up...</div>
-        <button id="cashout-btn" class="btn" onclick="cashOut()">CASH OUT NOW</button>
+# This creates a massive list of 100,000 crash points instantly
+market_history = [generate_crash_point() for _ in range(total_rounds)]
 
-        <script>
-            let currentMulti = 1.00;
-            let crashed = false;
-            let cashedOut = false;
-            let cashOutValue = 0.00;
-            
-            // The Python variable is injected right here:
-            let crashPoint = {crash_target}; 
-            
-            let display = document.getElementById("multiplier");
-            let status = document.getElementById("status");
-            let btn = document.getElementById("cashout-btn");
+# --- 2. Analyze the Statistics ---
+# Count occurrences
+crashes_under_2 = sum(1 for x in market_history if x < 2.00)
+crashes_over_2 = sum(1 for x in market_history if x >= 2.00)
+crashes_over_10 = sum(1 for x in market_history if x >= 10.00)
+crashes_at_1_01 = sum(1 for x in market_history if x == 1.01)
 
-            // The animation loop
-            let gameLoop = setInterval(() => {{
-                if (crashed) return;
-                
-                currentMulti += 0.05 + (currentMulti * 0.01);
-                
-                if (currentMulti >= crashPoint) {{
-                    // CRASH LOGIC
-                    currentMulti = crashPoint;
-                    crashed = true;
-                    display.innerText = currentMulti.toFixed(2) + "x";
-                    display.style.color = "#F44336"; // Turn Red
-                    
-                    if (cashedOut) {{
-                        status.innerText = "💥 CRASHED! But you safely secured " + cashOutValue.toFixed(2) + "x.";
-                    }} else {{
-                        status.innerText = "💥 CRASHED! You were too late.";
-                    }}
-                    
-                    btn.disabled = true;
-                    clearInterval(gameLoop);
-                }} else {{
-                    display.innerText = currentMulti.toFixed(2) + "x";
-                }}
-            }}, 50);
+# Find the longest brutal losing streak (consecutive crashes under 2.00x)
+max_red_streak = 0
+current_streak = 0
 
-            // The button click logic
-            function cashOut() {{
-                if (crashed || cashedOut) return;
-                
-                cashedOut = true;
-                cashOutValue = currentMulti; 
-                
-                status.innerText = "🎉 Cashed Out at " + cashOutValue.toFixed(2) + "x! (Watching Combi...)";
-                btn.disabled = true; 
-            }}
-        </script>
-    </body>
-    </html>
-    """
+for tick in market_history:
+    if tick < 2.00:
+        current_streak += 1
+        if current_streak > max_red_streak:
+            max_red_streak = current_streak
+    else:
+        current_streak = 0
 
-    # 3. We use Streamlit Components to render our mini JavaScript game
-    components.html(custom_game_ui, height=400)
+# --- 3. Print the Market Report ---
+print("\n--- 📊 ALGORITHM ANALYSIS REPORT ---")
+print(f"Total Rounds Simulated: {total_rounds:,}")
+print("-" * 35)
+print(f"Win Rate (Target 2.00x): {(crashes_over_2 / total_rounds) * 100:.2f}%")
+print(f"Loss Rate (Under 2.00x): {(crashes_under_2 / total_rounds) * 100:.2f}%")
+print("-" * 35)
+print(f"Frequency of 10.00x+: {(crashes_over_10 / total_rounds) * 100:.2f}%")
+print(f"Frequency of INSTANT CRASH (1.01x): {(crashes_at_1_01 / total_rounds) * 100:.2f}%")
+print("-" * 35)
+print(f"⚠️ LONGEST RECORDED RED STREAK: {max_red_streak} rounds in a row under 2.00x")
