@@ -1,65 +1,57 @@
 import streamlit as st
 import random
 
-st.set_page_config(page_title="Aviator Pattern Tracker", page_icon="🚐")
+st.set_page_config(page_title="Aviator Sniper Tracker", page_icon="🚐")
 
 def generate_simulated_number():
-    """Generates a number using the standard crash math for comparison."""
+    """Generates a number using the standard crash math (0.99 house edge)."""
     random_float = random.uniform(0, 1)
     return round(max(1.01, 0.99 / (1 - random_float)), 2)
 
-st.title("🚐 Aviator Live Pattern Tracker")
-st.write("Enter the last number you saw on Aviator to track the current 'Blue Streak'.")
+st.title("🚐 Aviator Pattern Tracker")
 
-# 1. Initialize session data
-if 'real_history' not in st.session_state:
-    st.session_state.real_history = []
-if 'blue_streak' not in st.session_state:
-    st.session_state.blue_streak = 0
+# 1. Direct Streak Input
+st.subheader("1. Current Game State")
+manual_streak = st.number_input("How many blues are currently on the screen?", min_value=0, value=0, step=1)
 
-# 2. Manual Input Section
-with st.form("input_form", clear_on_submit=True):
-    prev_num = st.number_input("Enter Last Aviator Number (e.g. 1.30):", min_value=1.00, step=0.01)
-    submitted = st.form_submit_button("Log Number & Generate Prediction")
-
-if submitted:
-    # Update History
-    st.session_state.real_history.insert(0, prev_num)
-    
-    # Update Blue Streak (numbers under 2.0x)
-    if prev_num < 2.0:
-        st.session_state.blue_streak += 1
-    else:
-        st.session_state.blue_streak = 0
-
-# 3. The "Prediction" (Simulated Next Round)
+# 2. Strategy Logic
 st.divider()
-st.subheader("Current Market Status")
+st.subheader("2. Sniper Strategy Advice")
 
 col1, col2 = st.columns(2)
-col1.metric("Current Blue Streak", f"{st.session_state.blue_streak} Rounds")
+col1.metric("Live Blue Streak", f"{manual_streak} Rounds")
 
-# Strategy Advice based on your 8-round wait rule
-if st.session_state.blue_streak >= 8:
-    col2.success("🎯 SNIPER ALERT: Wait Condition Met!")
-    st.write("**Strategy:** The 8-blue wait is complete. Statistically, a green round is 'likely' soon (though not guaranteed).")
+if manual_streak >= 8:
+    col2.success("🎯 CONDITION MET: SNIPER ENTRY")
+    advice = "The 8-round drought has occurred. Statistically, the chance of the next round also being blue is low, though every round remains independent."
 else:
-    col2.warning("🕒 Observation Mode")
-    st.write(f"**Strategy:** Continue waiting. You need {8 - st.session_state.blue_streak} more blues.")
+    col2.warning("🕒 OBSERVATION MODE")
+    advice = f"Continue watching the tape. You need {8 - manual_streak} more consecutive blues before entering."
 
-# 4. The Simulated "Next" Result
-# This shows what a fair RNG would produce next
-predicted_next = generate_simulated_number()
-st.markdown(f"""
-    <div style="text-align: center; border: 2px solid #555; border-radius: 10px; padding: 20px;">
-        <h3>Simulated Next Outcome</h3>
-        <p style="font-size: 80px; font-weight: bold; color: {'#3498db' if predicted_next < 2 else '#2ecc71'};">
-            {predicted_next}x
-        </p>
-        <p><i>(Based on Provably Fair Math)</i></p>
-    </div>
-""", unsafe_allow_html=True)
+st.info(advice)
 
-# 5. Visual Tape
+# 3. Predict the 'Next' Outcome
 st.divider()
-st.write("**Recent Tape (Real Data):**", st.session_state.real_history[:15])
+if st.button("Generate Next Number Prediction", use_container_width=True, type="primary"):
+    predicted_next = generate_simulated_number()
+    
+    # Large Display Logic
+    color = "#3498db" if predicted_next < 2 else "#2ecc71"
+    if predicted_next >= 10: color = "#9b59b6"
+    
+    st.markdown(f"""
+        <div style="text-align: center; border: 2px solid #555; border-radius: 15px; padding: 30px; background-color: #1e1e1e;">
+            <h2 style="color: white;">Simulated Next Number</h2>
+            <p style="font-size: 100px; font-weight: bold; color: {color}; margin: 0;">
+                {predicted_next}x
+            </p>
+            <p style="color: #aaa;"><i>(Math-based prediction for the next round)</i></p>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    # Result Analysis
+    if manual_streak >= 8 and predicted_next >= 2.0:
+        st.balloons()
+        st.success(f"Profit! The {manual_streak}-streak was broken by a {predicted_next}x.")
+    elif manual_streak >= 8 and predicted_next < 2.0:
+        st.error(f"Drought Continued. The streak is now {manual_streak + 1} blues.")
