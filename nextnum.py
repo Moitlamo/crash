@@ -1,68 +1,65 @@
 import streamlit as st
 import random
-import time
 
-# Page styling for that "Casino" feel
-st.set_page_config(page_title="Combi Number Reveal", page_icon="🚐", layout="centered")
+st.set_page_config(page_title="Aviator Pattern Tracker", page_icon="🚐")
 
-def generate_crash_point():
-    """The core engine generating the next outcome."""
+def generate_simulated_number():
+    """Generates a number using the standard crash math for comparison."""
     random_float = random.uniform(0, 1)
-    # The math: 0.99 / (1 - rand) creates the crash curve
-    crash_point = max(1.01, 0.99 / (1 - random_float))
-    return round(min(crash_point, 1000.00), 2)
+    return round(max(1.01, 0.99 / (1 - random_float)), 2)
 
-st.title("🚐 The Combi Next Number")
-st.write("Click below to reveal the next generated multiplier in the sequence.")
+st.title("🚐 Aviator Live Pattern Tracker")
+st.write("Enter the last number you saw on Aviator to track the current 'Blue Streak'.")
 
-# Custom CSS for the "Big Font" display
-st.markdown("""
-    <style>
-    .big-font {
-        font-size:120px !important;
-        font-weight: bold;
-        text-align: center;
-        margin-top: -20px;
-    }
-    .blue { color: #3498db; }
-    .green { color: #2ecc71; }
-    .pink { color: #9b59b6; }
-    </style>
-    """, unsafe_allow_html=True)
+# 1. Initialize session data
+if 'real_history' not in st.session_state:
+    st.session_state.real_history = []
+if 'blue_streak' not in st.session_state:
+    st.session_state.blue_streak = 0
 
-# Initialize a history list in session state to track the tape
-if 'history' not in st.session_state:
-    st.session_state.history = []
+# 2. Manual Input Section
+with st.form("input_form", clear_on_submit=True):
+    prev_num = st.number_input("Enter Last Aviator Number (e.g. 1.30):", min_value=1.00, step=0.01)
+    submitted = st.form_submit_button("Log Number & Generate Prediction")
 
-# The "Next Number" Trigger
-if st.button("Reveal Next Number", use_container_width=True, type="primary"):
-    with st.spinner('Generating...'):
-        time.sleep(0.5) # Adding a slight delay for suspense
-        next_val = generate_crash_point()
-        st.session_state.history.insert(0, next_val) # Add to the top of the list
-
-# Display the Current Number
-if st.session_state.history:
-    latest = st.session_state.history[0]
+if submitted:
+    # Update History
+    st.session_state.real_history.insert(0, prev_num)
     
-    # Determine color based on rarity/value
-    color_class = "blue"
-    if latest >= 10:
-        color_class = "pink"
-    elif latest >= 2:
-        color_class = "green"
-    
-    # BIG FONT DISPLAY
-    st.markdown(f'<p class="big-font {color_class}">{latest}x</p>', unsafe_allow_html=True)
-    
-    # Simple logic for your advantage
-    if latest < 2.0:
-        st.info(f"This was a **Blue** (High Occurrence). Current Blue Streak: {sum(1 for x in st.session_state.history if x < 2.0)} total blues recorded.")
-    elif latest >= 10:
-        st.balloons()
-        st.success("🔥 **PINK SPIKE!** This is a rare high-value number.")
+    # Update Blue Streak (numbers under 2.0x)
+    if prev_num < 2.0:
+        st.session_state.blue_streak += 1
+    else:
+        st.session_state.blue_streak = 0
 
-# Display the Recent Tape (History)
+# 3. The "Prediction" (Simulated Next Round)
 st.divider()
-st.subheader("Recent Tape History")
-st.write(st.session_state.history[:10]) # Show the last 10 numbers
+st.subheader("Current Market Status")
+
+col1, col2 = st.columns(2)
+col1.metric("Current Blue Streak", f"{st.session_state.blue_streak} Rounds")
+
+# Strategy Advice based on your 8-round wait rule
+if st.session_state.blue_streak >= 8:
+    col2.success("🎯 SNIPER ALERT: Wait Condition Met!")
+    st.write("**Strategy:** The 8-blue wait is complete. Statistically, a green round is 'likely' soon (though not guaranteed).")
+else:
+    col2.warning("🕒 Observation Mode")
+    st.write(f"**Strategy:** Continue waiting. You need {8 - st.session_state.blue_streak} more blues.")
+
+# 4. The Simulated "Next" Result
+# This shows what a fair RNG would produce next
+predicted_next = generate_simulated_number()
+st.markdown(f"""
+    <div style="text-align: center; border: 2px solid #555; border-radius: 10px; padding: 20px;">
+        <h3>Simulated Next Outcome</h3>
+        <p style="font-size: 80px; font-weight: bold; color: {'#3498db' if predicted_next < 2 else '#2ecc71'};">
+            {predicted_next}x
+        </p>
+        <p><i>(Based on Provably Fair Math)</i></p>
+    </div>
+""", unsafe_allow_html=True)
+
+# 5. Visual Tape
+st.divider()
+st.write("**Recent Tape (Real Data):**", st.session_state.real_history[:15])
