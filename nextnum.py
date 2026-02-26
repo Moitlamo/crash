@@ -1,57 +1,74 @@
 import streamlit as st
 import random
+import time
 
-st.set_page_config(page_title="Aviator Sniper Tracker", page_icon="🚐")
+st.set_page_config(page_title="The Cattle Drive Slots", page_icon="🎰", layout="centered")
 
-def generate_simulated_number():
-    """Generates a number using the standard crash math (0.99 house edge)."""
-    random_float = random.uniform(0, 1)
-    return round(max(1.01, 0.99 / (1 - random_float)), 2)
+st.title("🎰 The Cattle Drive: 3x3 Slots")
+st.write("Press SPIN to test the weighted probability matrix.")
 
-st.title("🚐 Aviator Pattern Tracker")
+# --- 1. The Mathematical Weights ---
+# We don't use pure randomness. We use "weights" to control the house edge.
+# The total adds up to 100% for easy math.
+symbols = ["🐄", "🚐", "🦓", "🦁", "💎"]
+weights = [45, 30, 15, 8, 2] # Diamonds only have a 2% chance of appearing!
 
-# 1. Direct Streak Input
-st.subheader("1. Current Game State")
-manual_streak = st.number_input("How many blues are currently on the screen?", min_value=0, value=0, step=1)
+# The Payout Table (Multiplier based on your bet)
+payouts = {
+    "🐄": 2.0,   # 3 Cows pays 2x
+    "🚐": 5.0,   # 3 Combis pays 5x
+    "🦓": 15.0,  # 3 Zebras pays 15x
+    "🦁": 50.0,  # 3 Lions pays 50x
+    "💎": 250.0  # 3 Diamonds pays 250x
+}
 
-# 2. Strategy Logic
+def spin_reel():
+    """Generates a single reel spin based on our rigged weights."""
+    return random.choices(symbols, weights=weights, k=3)
+
+# --- 2. The Game UI ---
 st.divider()
-st.subheader("2. Sniper Strategy Advice")
 
-col1, col2 = st.columns(2)
-col1.metric("Live Blue Streak", f"{manual_streak} Rounds")
+col_bet, col_spin = st.columns([1, 1])
+with col_bet:
+    bet_amount = st.number_input("Bet Amount (BWP):", min_value=1.0, value=10.0, step=1.0)
+with col_spin:
+    st.write("") # Spacing
+    spin_button = st.button("🎰 SPIN THE REELS", type="primary", use_container_width=True)
 
-if manual_streak >= 8:
-    col2.success("🎯 CONDITION MET: SNIPER ENTRY")
-    advice = "The 8-round drought has occurred. Statistically, the chance of the next round also being blue is low, though every round remains independent."
-else:
-    col2.warning("🕒 OBSERVATION MODE")
-    advice = f"Continue watching the tape. You need {8 - manual_streak} more consecutive blues before entering."
+# Custom CSS to make the slot symbols massive
+st.markdown("""
+    <style>
+    .slot-machine { font-size: 80px; text-align: center; letter-spacing: 20px; line-height: 1.2; }
+    .win-text { color: #2ecc71; font-size: 30px; font-weight: bold; text-align: center; }
+    </style>
+""", unsafe_allow_html=True)
 
-st.info(advice)
-
-# 3. Predict the 'Next' Outcome
-st.divider()
-if st.button("Generate Next Number Prediction", use_container_width=True, type="primary"):
-    predicted_next = generate_simulated_number()
-    
-    # Large Display Logic
-    color = "#3498db" if predicted_next < 2 else "#2ecc71"
-    if predicted_next >= 10: color = "#9b59b6"
-    
-    st.markdown(f"""
-        <div style="text-align: center; border: 2px solid #555; border-radius: 15px; padding: 30px; background-color: #1e1e1e;">
-            <h2 style="color: white;">Simulated Next Number</h2>
-            <p style="font-size: 100px; font-weight: bold; color: {color}; margin: 0;">
-                {predicted_next}x
-            </p>
-            <p style="color: #aaa;"><i>(Math-based prediction for the next round)</i></p>
-        </div>
-    """, unsafe_allow_html=True)
-    
-    # Result Analysis
-    if manual_streak >= 8 and predicted_next >= 2.0:
-        st.balloons()
-        st.success(f"Profit! The {manual_streak}-streak was broken by a {predicted_next}x.")
-    elif manual_streak >= 8 and predicted_next < 2.0:
-        st.error(f"Drought Continued. The streak is now {manual_streak + 1} blues.")
+if spin_button:
+    with st.spinner("Spinning..."):
+        time.sleep(0.5) # Fake delay for suspense
+        
+        # Generate the 3x3 Grid
+        row1 = spin_reel()
+        row2 = spin_reel()
+        row3 = spin_reel()
+        
+        # Display the Grid
+        st.markdown(f'<div class="slot-machine">{row1[0]} {row1[1]} {row1[2]}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="slot-machine">{row2[0]} {row2[1]} {row2[2]}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="slot-machine">{row3[0]} {row3[1]} {row3[2]}</div>', unsafe_allow_html=True)
+        
+        st.divider()
+        
+        # --- 3. The Payout Logic ---
+        # For this basic version, we only check the MIDDLE row (Payline 1)
+        if row2[0] == row2[1] == row2[2]:
+            winning_symbol = row2[0]
+            multiplier = payouts[winning_symbol]
+            winnings = bet_amount * multiplier
+            
+            st.balloons()
+            st.markdown(f'<div class="win-text">🎉 JACKPOT! 3 {winning_symbol} matched!</div>', unsafe_allow_html=True)
+            st.success(f"You won BWP {winnings:.2f} ({multiplier}x multiplier)")
+        else:
+            st.error("No match on the center line. Try again!")
